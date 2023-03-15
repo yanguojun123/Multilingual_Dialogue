@@ -1,0 +1,4 @@
+<|endoftext|> <|context|> i want to be reminded to file tax <|endofcontext|> <|intent_slot|> <|intent|> reminder/set_reminder <|slot_value|> O O O O O O B-reminder/todo I-reminder/todo <|endof_intent_slot|> <|endoftext|> 
+<|endoftext|> <|context|> i don't want to forget to file taxes <|endofcontext|> <|intent_slot|> <|intent|> reminder/set_reminder <|slot_value|> O O O O O O B-reminder/todo I-reminder/todo <|endof_intent_slot|> <|endoftext|> 
+<|endoftext|> <|context|> my alarms <|endofcontext|> <|intent_slot|> <|intent|> alarm/show_alarms <|slot_value|> O O <|endof_intent_slot|> <|endoftext|> 
+<|endoftext|> <|context|> show my alarms <|endofcontext|> <|intent_slot|> <|intent|> alarm/show_alarms <|slot_value|> O O O <|endof_intent_slot|> <|endoftext|> 
