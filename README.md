@@ -61,14 +61,14 @@ Optional parameter: batch_size, mode ...(This part of parameter description can 
 For example, The following example is an example of English.
 
 ```
-sh run_mt5.sh gpu06 MT5_mon train_nlu nlu_mon_en en en nlubiomlt_en_train.txt nlubiomlt_en_val.txt nlubiomlt_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+sh run_mt5.sh gpu06 Monolingual train_nlu nlu_mon_en en en nlubiomlt_en_train.txt nlubiomlt_en_val.txt nlubiomlt_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
 ```
 
 2)**Bilingual mixture-of-languages routing**
 For example, The following example is an example of from English and Spanish to English.
 
 ```bash
-sh run_mt5.sh gpu06 MT5_mot train_nlu nlu_mot_enes2en es en nlubiomlt_en_train.txt,nlubiomlt_es_train.txt nlubiomlt_en_val.txt nlubiomlt_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+sh run_mt5.sh gpu06 Monolingual train_nlu nlu_mot_enes2en es en nlubiomlt_en_train.txt,nlubiomlt_es_train.txt nlubiomlt_en_val.txt nlubiomlt_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
 ```
 3)**Multilingual mixture-of-languages routing**
  train(To complete a complete experiment requires two stages of training):
@@ -78,18 +78,18 @@ For example, from English to Spanish, we need to use Thai as the intermediate la
 
 **step1**:
  ```
- sh run_mt5.sh gpu06 MT5_mot train_nlu mt5_mot_esth2th th es nlubiomlt_es_train.txt,nlubiomlt_th_train.txt nlubiomlt_th_val.txt nlubiomlt_th_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+ sh run_mt5.sh gpu06 Multilingual train_nlu mt5_mot_esth2th th es nlubiomlt_es_train.txt,nlubiomlt_th_train.txt nlubiomlt_th_val.txt nlubiomlt_th_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
  ```
 **step2**:
 We need to train on the best results obtained in the first step.
 ```
-sh run_mt5.sh gpu06 MT5_mot train_nlu nlu_mot_enes2es es en nlubiomlt_en_train.txt,nlubiomlt_es_train.txtnlubiomlt_en_val.txt nlubiomlt_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --pretrained_model=/data/best_epoch/'
+sh run_mt5.sh gpu06 Multilingual train_nlu nlu_mot_enes2es es en nlubiomlt_en_train.txt,nlubiomlt_es_train.txtnlubiomlt_en_val.txt nlubiomlt_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --pretrained_model=/data/best_epoch/'
 ```
 
 4)**Crossligual**
 For example, train on the English data but test on the Thai data.
  ```
- sh train_mt5.sh gpu06 MT5_mot train_nlu mt5_clcsa_en2th en th nlutransmlt_th_train.txt nlubiomlt_th_val.txt nlubiomlt_th_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+ sh train_mt5.sh gpu06 Multilingual train_nlu_cross mt5_clcsa_en2th en th nlutransmlt_th_train.txt nlubiomlt_th_val.txt nlubiomlt_th_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
  ```
 
 #### 3.1.2 Dialogue State Tracking(DST)
@@ -109,13 +109,13 @@ For example, train on the English data but test on the Thai data.
 For example, The following example is an example of English.
 
 ```bash
-sh run_mt5.sh gpu06 MT5_mon train_mt5 mt5_mon_en en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+sh run_mt5.sh gpu06 Monolingual train_dst mt5_mon_en en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
 ```
 **2)Bilingual mixture-of-languages routing**
 For example, The following example is an example of from English and German to English.
 
 ```bash
-sh run_mt5.sh gpu06 MT5_mot train_mt5 mt5_mot_ende2en de en beliefinput2delex_en_train.txt,beliefinput2delex_de_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+sh run_mt5.sh gpu06 Multilingual train_dst mt5_mot_ende2en de en beliefinput2delex_en_train.txt,beliefinput2delex_de_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
 ```
 **3)Multilingual mixture-of-languages routing**
  train(To complete a complete experiment requires two stages of training):
@@ -125,18 +125,18 @@ For example, from English to German, we need to use Italian as the intermediate 
 
 **step1**:
  ```bash
- sh run_mt5.sh gpu06 MT5_mot train_mt5 mt5_mot_deit2it it de beliefinput2delex_de_train.txt,beliefinput2delex_it_train.txt beliefinput2delex_it_val.txt beliefinput2delex_it_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+ sh run_mt5.sh gpu06 Multilingual train_dst mt5_mot_deit2it it de beliefinput2delex_de_train.txt,beliefinput2delex_it_train.txt beliefinput2delex_it_val.txt beliefinput2delex_it_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
  ```
 **step2**:
 We need to train on the best results obtained in the first step.
 ```bash
-sh run_mt5.sh gpu06 MT5_mot train_mt5 mt5_mot_ende2de en de beliefinput2delex_en_train.txt,beliefinput2delex_de_train.txt beliefinput2delex_de_val.txt beliefinput2delex_de_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --pretrained_model=/data/best_epoch/'
+sh run_mt5.sh gpu06 Multilingual train_dst mt5_mot_ende2de en de beliefinput2delex_en_train.txt,beliefinput2delex_de_train.txt beliefinput2delex_de_val.txt beliefinput2delex_de_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --pretrained_model=/data/best_epoch/'
 ```
 4)**Crossligual**
 
 For example, train on the English data but test on the Italian data.
  ```
- sh train_mt5.sh gpu06 MT5_mot train_mt5 mt5_clcsa_en2it en it beliefCOSDA0.6_it_match.txt beliefinput2delex_it_val.txt beliefinput2delex_it_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+ sh train_mt5.sh gpu06 Multilingual train_dst mt5_clcsa_en2it en it beliefCOSDA0.6_it_match.txt beliefinput2delex_it_val.txt beliefinput2delex_it_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
  ```
 
 ### 3.2 evaluation
@@ -145,7 +145,7 @@ Use the same command as training, but you need to change some parameters. Specif
 
 For example, we evaluate on the Monlingual English data.
 ```bash
-sh run_mt5.sh gpu06 MT5_mot mt5_mot_en_eval en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=evluation --dialogue_model_output_path=model/mon_en_model/'
+sh run_mt5.sh gpu06 Monolingual train_dst mt5_mot_en_eval en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=evluation --dialogue_model_output_path=model/mon_en_model/'
 ```
 ### 3.3 test
 
@@ -153,7 +153,7 @@ Use the same command as training, but you need to change some parameters. Specif
 
 For example, we test on the Monlingual English data.
 ```bash
-sh run_mt5.sh gpu06 MT5_mot mt5_mot_en_test en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=test --pretrained_model=model/mon_en_model/model_epoch4/'
+sh run_mt5.sh gpu06 Monolingual train_dst mt5_mot_en_test en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=test --pretrained_model=model/mon_en_model/model_epoch4/'
 ```
 
 ## 4.Citation
