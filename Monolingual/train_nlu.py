@@ -1,5 +1,5 @@
 from torch.backends import cudnn
-from transformers import MT5ForConditionalGeneration
+from modeling_mt5_mld import MT5ForConditionalGeneration
 from transformers import MT5Tokenizer
 import transformers
 import torch
@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 import logging
 from os.path import join
-from torch.utils.data import Dataset
+from dataset import MyDataset
 from torch.utils.data import DataLoader
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -24,47 +24,13 @@ from torch.nn import CrossEntropyLoss
 from sklearn.metrics import f1_score
 from sklearn.metrics import accuracy_score, f1_score
 from conll2002_metrics import *
+from torch.optim.lr_scheduler import OneCycleLR
 import pdb
 PAD = '[PAD]'
 pad_id = 0
 logger = None
-CURRENT_LANG = ''
 CODE_ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
-class MyDataset(Dataset):
-    """
-
-    """
-
-    def __init__(self, data_list, tokenizer):
-        self.data_list = data_list
-        self.langs = ['<en>', '<es>', '<th>']
-
-    def __getitem__(self, index):
-        inputs = self.data_list[index].strip()
-        if '<|trans|>' in inputs:
-            inputs_com = inputs.split("<|trans|>")[0].split("<|context|>")[1] + '<|endofcontext|>'
-            labels = inputs.split("<|endofcontext|>")[1].split("<|slot_values|>")[0]
-            intent_labels = inputs.split("<|intent|>")[1].split("<|slot_value|>")[0]
-            slot_labels = inputs.split("<|slot_value|>")[1].split("<|endof_slot_value|>")[0].strip()
-            #slots = inputs.split("<|slot_values|>")[1].split("<|endoftext|>")[0].strip()
-            for lang in self.langs:
-                input_src = inputs.split("<|trans|>")[0].replace(lang, '')
-
-            input_src = input_src.split("<|trans|>")[0].split("<|context|>")[1]
-            input_tgt = '<nlu> ' + inputs.split("<|mlt|>")[0].split("<|trans|>")[1]
-            #input_mlt = inputs.split("<|mlt|>")[1].split("<|endofcontext|>")[0]
-            input_mlt = inputs_com.split(input_src.split("<nlu>")[1])[0] + inputs.split("<|mlt|>")[1].split \
-                ("<|endofcontext|>")[0] + '<|endofcontext|>'
-            #print(input_mlt)
-            return [inputs_com, labels, input_src, input_tgt, intent_labels, input_mlt, slot_labels]
-        else:
-            inputs_com = inputs.split('<|endofcontext|>')[0].split("<|context|>")[1] + ' <|endofcontext|>'
-            labels = inputs.split("<|endofcontext|>")[1].split("<|endoftext|>")[0]
-            return [inputs_com, labels]
-
-    def __len__(self):
-        return len(self.data_list)
 
 def setup_train_args():
     """
@@ -192,9 +158,9 @@ def create_model(args):
         model = MT5ForConditionalGeneration.from_pretrained(previous_model)
     else:
         if args.local_test:
-            model = MT5ForConditionalGeneration.from_pretrained("../../mt5/")
+            model = MT5ForConditionalGeneration.from_pretrained("/data/yanguojun-slurm/mt5/")
         else:
-            model = MT5ForConditionalGeneration.from_pretrained("../../GPT2-chitchat/model/mt5/")
+            model = MT5ForConditionalGeneration.from_pretrained("/data/yanguojun-slurm/GPT2-chitchat/model/mt5/")
     logger.info('model config:\n{}'.format(model.config.to_json_string()))
     return model
 def collate_fn(batch):
@@ -208,40 +174,12 @@ def collate_fn(batch):
 
     inputs = []
     labels = []
-    input_src = []
-    input_tgt = []
-    input_mlt = []
-    intent_labels = []
-    slot_lables = []
-    slots = []
-    # if len(batch[0]) == 4:
-    #     for btc_idx in range(btc_size):
-    #         inputs.append(batch[btc_idx].split("<|trans|>")[0].split("<|context|>")[1] + '<|endofcontext|>')
-    #         labels.append(batch[btc_idx].split("<|endofcontext|>")[1].split("<|endoftext|>")[0])
-    #         input_src.append('<nlu> '+batch[btc_idx].split("<|trans|>")[0].split(CURRENT_LANG)[2])
-    #         input_tgt.append('<nlu> ' + batch[btc_idx].split("<|endofcontext|>")[0].split("<|trans|>")[1])
-    #     return [inputs, labels, input_src, input_tgt]
-    # else:
-    #     for btc_idx in range(btc_size):
-    #         inputs.append(batch[btc_idx].split('<|endofcontext|>')[0].split("<|context|>")[1] + ' <|endofcontext|>')
-    #         labels.append(batch[btc_idx].split("<|endofcontext|>")[1].split("<|endoftext|>")[0])
-    #     return [inputs, labels]
-    if len(batch[0]) == 2:
-        for btc_idx in range(btc_size):
-            inputs.append(batch[btc_idx][0])
-            labels.append(batch[btc_idx][1])
-        return [inputs, labels]
-    else:
-        for btc_idx in range(btc_size):
-            inputs.append(batch[btc_idx][0])
-            labels.append(batch[btc_idx][1])
-            input_src.append(batch[btc_idx][2])
-            input_tgt.append(batch[btc_idx][3])
-            intent_labels.append(batch[btc_idx][4])
-            input_mlt.append(batch[btc_idx][5])
-            slot_lables.append(batch[btc_idx][6])
-            #slots.append(batch[btc_idx][7])
-        return [inputs, labels, input_src, input_tgt, intent_labels, input_mlt, slot_lables, slots]
+    for btc_idx in range(btc_size):
+        #inputs.append('<dst> <en>: '+batch[btc_idx].split("<|endofcontext|>")[0].split("<|context|>")[1])
+        inputs.append(batch[btc_idx].split("<|intent_slot|>")[0].split("<|context|>")[1])
+        labels.append(batch[btc_idx].split("<|endofcontext|>")[1].split("<|endoftext|>")[0])
+    return [inputs, labels]
+
 def train(model, device, train_list, multi_gpu, args, tokenizer, tb_writer):
     candidates = '<|candidates|> request address,request area,request food,request phone,request price range,' \
                  'request postcode,request name,food afghan,food african,food afternoon tea,food asian oriental,' \
@@ -258,10 +196,10 @@ def train(model, device, train_list, multi_gpu, args, tokenizer, tb_writer):
                  'food steakhouse,food swedish,food swiss,food thai,food the americas,food traditional,food turkish,food tuscan,food unusual,food vegetarian,' \
                  'food venetian,food vietnamese,food welsh,food world,price range cheap,price range moderate,price range expensive,area centre,area north,' \
                  'area west,area south,area east <|endofcandidates|>'
-    encoder = model.module.get_encoder()
+
     print(len(train_list))
     train_datasets = []
-    train_dataset = MyDataset(train_list, tokenizer)
+    train_dataset = MyDataset(train_list)
     #train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,collate_fn=collate_fn)
     model.train()
     # 计算所有epoch进行参数优化的总步数total_steps
@@ -271,7 +209,8 @@ def train(model, device, train_list, multi_gpu, args, tokenizer, tb_writer):
 
     # 设置优化器，并且在初始训练时，使用warmup策略
     optimizer = transformers.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, correct_bias=True)
-    scheduler = transformers.get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0.08 * total_steps, num_training_steps=total_steps)
+    scheduler = transformers.get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0.07 * total_steps, num_training_steps=total_steps)
+    #scheduler = OneCycleLR(optimizer, max_lr=args.lr, total_steps=total_steps)
 
     logger.info('starting training')
     # 用于统计每次梯度累计的loss
@@ -300,15 +239,8 @@ def train(model, device, train_list, multi_gpu, args, tokenizer, tb_writer):
                                           collate_fn=collate_fn)
         epoch_start_time = datetime.now()
         for batch_idx, input_ids in enumerate(train_dataloader):
-            #print(input_ids)
 
-            inputs = tokenizer(input_ids[0], return_tensors="pt", padding=True).to(device)
-            input_src = tokenizer(input_ids[2], return_tensors="pt", padding=True).to(device)
-            input_tgt = tokenizer(input_ids[3], return_tensors="pt", padding=True).to(device)
-            intent_labels = tokenizer(input_ids[4], return_tensors="pt", padding=True).to(device)
-            input_mlt = tokenizer(input_ids[5], return_tensors="pt", padding=True).to(device)
-            slot_labels = tokenizer(input_ids[6], return_tensors="pt", padding=True).to(device)
-            #slots = tokenizer(input_ids[7], return_tensors="pt", padding=True).to(device)
+            inputs = tokenizer(input_ids[0], return_tensors="pt",padding=True).to(device)
             #candidate_inputs = tokenizer([candidates] * inputs['input_ids'].size(0), return_tensors="pt",
             #                             padding=True).to(device)
             with tokenizer.as_target_tokenizer():
@@ -316,72 +248,26 @@ def train(model, device, train_list, multi_gpu, args, tokenizer, tb_writer):
                     labels = tokenizer(input_ids[1], return_tensors="pt", padding=True).to(device)
             # 解决在运行过程中，由于显存不足产生的cuda out of memory的问题
             try:
-                # origin input and label
-                if args.local_test:
-                    outputs = model(**inputs, labels=labels["input_ids"],  return_dict=True)
+                outputs = model(**inputs, labels=labels["input_ids"], parameter_id=0)
+                #candidate_outputs = model(**candidate_inputs, labels=labels['input_ids'])
+                #print("inputs:",input_ids[0])
+                #print("labels:", input_ids[1])
 
-                    # alignment loss
-                    inputs_src_last_encoder_hidden_state = model(**input_src, labels=labels["input_ids"], return_dict=True)\
-                        .encoder_last_hidden_state
+                #logits = outputs.logits
+                #logits = logits + torch.mul(candidate_outputs.logits, outputs.logits)
+                #pdb.set_trace()
 
-                    inputs_tgt_last_encoder_hidden_state = model(**input_tgt, labels=labels["input_ids"],  return_dict=True) \
-                        .encoder_last_hidden_state
-                else:
-                    # nlu_loss
-                    #outputs = model(**inputs, labels=labels["input_ids"], parameter_id=0, return_dict=True)
+                #loss_fct = CrossEntropyLoss(ignore_index=-100)
+                #loss = loss_fct(logits.view(-1, logits.size(-1)), labels['input_ids'].view(-1))
 
-                    # alignment loss
-
-                    # origin_input
-                    # inputs_src_last_encoder_hidden_state = model(**input_src, labels=labels["input_ids"],
-                    #                                              parameter_id=0, return_dict=True) \
-                    #     .encoder_last_hidden_state
-                    # inputs_src_last_encoder_hidden_state = encoder(**input_src, return_dict=True) \
-                    #                                                  .last_hidden_state
-                    # inputs_tgt_last_encoder_hidden_state = encoder(**input_tgt, return_dict=True) \
-                    #     .last_hidden_state
-                    # translated_input
-                    # inputs_tgt_last_encoder_hidden_state = model(**input_tgt, labels=labels["input_ids"],
-                    #                                              parameter_id=0, return_dict=True) \
-                    #     .encoder_last_hidden_state
-                    tgt_loss = model(**input_tgt, labels=intent_labels["input_ids"],
-                                                                 parameter_id=0, return_dict=True) \
-                        .loss
-                    mlt_loss = model(**input_mlt, labels=labels["input_ids"],
-                                                                 parameter_id=0, return_dict=True) \
-                        .loss
-                    # slot_loss = model(**input_tgt, labels=slots["input_ids"],
-                    #                  parameter_id=0, return_dict=True) \
-                    #     .loss
-                # inputs_src_emb = inputs_src_last_encoder_hidden_state[:, 0, :]
-                # inputs_tgt_emb = inputs_tgt_last_encoder_hidden_state[:, 0, :]
-                # inputs_src_emb = torch.mean(inputs_src_last_encoder_hidden_state, dim=1)
-                # inputs_tgt_emb = torch.mean(inputs_tgt_last_encoder_hidden_state, dim=1)
-                #
-                # MSE_loss = torch.nn.MSELoss()
-                # mse_loss = MSE_loss(inputs_src_emb, inputs_tgt_emb)
-
-                # total loss
-                #loss = outputs.loss + 0.05 * abs(30-epoch)*tgt_loss + 0.05 * abs(30-epoch)*mlt_loss
-                loss = 0.9*mlt_loss + 0.1 * tgt_loss
-                #loss = mse_loss
-                #model_dict = model.state_dict()
-                #print("loss:", outputs.loss, "intent_loss:", tgt_loss)
-                #print("loss:", outputs.loss, "intent_loss:", tgt_loss, "mlt_loss:", mlt_loss)
-                #print(model_dict.keys())
-                #print("loss:", outputs.loss, "mes_loss:", mse_loss)
-                # print("encoder-weight:", model_dict['module.encoder.block.0.layer.0.SelfAttention.q.weight'][0][0])
-                # print("decoder-weight:", model_dict['module.decoder.block.0.layer.1.EncDecAttention.k.weight'][0][0])
+                loss = outputs.loss
+                #print("loss:", loss)
                 if multi_gpu:
                     loss = loss.mean()
                 if args.gradient_accumulation > 1:
                     loss = loss.mean() / args.gradient_accumulation
                 #loss.backward(loss.clone().detach())
                 loss.backward()
-
-                # for name, param in model.named_parameters():
-                #     if param.grad is None:
-                #         print(name)
                 # 梯度裁剪解决的是梯度消失或爆炸的问题，即设定阈值
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 # 进行一定step的梯度累计之后，更新参数
@@ -619,7 +505,7 @@ def evaluate_avg_acc(model, device,val_list, args, tokenizer, tb_writer, overste
     loss_all = 0
     step_all = 0
     # tb_writer = SummaryWriter(log_dir=args.writer_dir)
-    val_dataset = MyDataset(val_list, tokenizer)
+    val_dataset = MyDataset(val_list)
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size*7, shuffle=True, num_workers=args.num_workers,
                                 collate_fn=collate_fn)
     with torch.no_grad():
@@ -637,7 +523,6 @@ def evaluate_avg_acc(model, device,val_list, args, tokenizer, tb_writer, overste
             # input_ids = input_ids[:, 6:].to(device)
             # input_ids.to(device)
             inputs = tokenizer(input_ids[0], return_tensors="pt", padding=True)
-            #print('inputs_size', inputs["input_ids"].size())
             # candidate_inputs = tokenizer([candidates] * inputs['input_ids'].size(0), return_tensors="pt",
             #                             padding=True).to(device)
             inputs = inputs.to(device)
@@ -661,7 +546,7 @@ def evaluate_avg_acc(model, device,val_list, args, tokenizer, tb_writer, overste
                     # generation = tokenizer.decode(outputs[index]).split('</s>')[0].split('<pad>')[1]
                     else:
                         generation = 'error'
-                    #print('generation:', generation)
+                    print('generation:', generation)
                 except IndexError:
                     generation = 'error'
                     #print("error")
@@ -713,7 +598,7 @@ def evaluate_avg_acc(model, device,val_list, args, tokenizer, tb_writer, overste
                     for x in range(len(slot_values_gold)):
                         slot_pre.append('O')
 
-                #print("groundtruth:", groundtruth)
+                print("groundtruth:", groundtruth)
                 assert len(slot_pre) == len(slot_gold)
 
                 # print("intent_pred:", intent_pred)
@@ -745,6 +630,112 @@ def evaluate_avg_acc(model, device,val_list, args, tokenizer, tb_writer, overste
             str(intent_acc), str(slot_f1),(intent_acc+slot_f1)/2))
 
     return (intent_acc+slot_f1)/2
+
+def evaluate_slot_filling(model, device, val_list, args, tokenizer, tb_writer, overstep):
+        index2slot = {'O': 0, 'B-weather/noun': 1, 'I-weather/noun': 2, 'B-location': 3, 'I-location': 4,
+                      'B-datetime': 5,
+                      'I-datetime': 6,
+                      'B-weather/attribute': 7, 'I-weather/attribute': 8, 'B-reminder/todo': 9, 'I-reminder/todo': 10,
+                      'B-alarm/alarm_modifier': 11, 'B-reminder/noun': 12, 'B-reminder/recurring_period': 13,
+                      'I-reminder/recurring_period': 14, 'B-reminder/reference': 15, 'I-reminder/noun': 16,
+                      'B-reminder/reminder_modifier': 17, 'I-reminder/reference': 18,
+                      'I-reminder/reminder_modifier': 19,
+                      'B-weather/temperatureUnit': 20, 'I-alarm/alarm_modifier': 21, 'B-alarm/recurring_period': 22,
+                      'I-alarm/recurring_period': 23}
+        logger.info("start evaluating model")
+        model.eval()
+        # 记录tensorboardX
+        loss_all = 0
+        step_all = 0
+        # tb_writer = SummaryWriter(log_dir=args.writer_dir)
+        val_dataset = MyDataset(val_list)
+        val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size * 10, shuffle=True,
+                                    num_workers=args.num_workers,
+                                    collate_fn=collate_fn)
+        with torch.no_grad():
+
+            request = []
+            joint = []
+            res_pre = []
+            res_gold = []
+            for batch_idx, input_ids in enumerate(val_dataloader):
+                # special_index = (input_ids[:, 0:6] - np.ones((input_ids.size(0), 6), dtype=int)).to(device)
+                # input_ids = input_ids[:, 6:].to(device)
+                # input_ids.to(device)
+                inputs = tokenizer(input_ids[0], return_tensors="pt", padding=True)
+                # candidate_inputs = tokenizer([candidates] * inputs['input_ids'].size(0), return_tensors="pt",
+                #                             padding=True).to(device)
+                inputs = inputs.to(device)
+                dialogue_groundtruth = input_ids[1]
+
+                outputs = model.generate(inputs["input_ids"], max_length=200, parameter_id=0)
+
+                for index in range(len(outputs)):
+                    groundtruth = dialogue_groundtruth[index].split('<|intent_slot|>')[1].split(
+                        '<|endof_intent_slot|>')[0]
+                    # print("groundtrhtu:", groundtruth)
+                    try:
+                        generation = tokenizer.decode(outputs[index])
+                        if '<|intent_slot|>' in generation and '<|endof_intent_slot|>' in generation:
+                            generation = \
+                                generation.split('<|intent_slot|>')[1].split(
+                                    '<|endof_intent_slot|>')[0]
+                        # generation = tokenizer.decode(outputs[index]).split('</s>')[0].split('<pad>')[1]
+                        else:
+                            generation = 'error'
+                        print('generation:', generation)
+                    except IndexError:
+                        generation = 'error'
+                        # print("error")
+
+                    intent_gold = ''
+                    intent_pred = ''
+                    joint_gold = {}
+                    joint_pred = {}
+                    slot_values_pre = ''
+                    slot_pre = set()
+                    slot_gold = set()
+                    if generation != 'error' and generation != ' ':
+                        if '<|slot_value|>' in generation:
+
+                            intent_pred = generation.split('<|slot_value|>')[0].split('<|intent|>')[1].strip()
+                            slot_values_pre = generation.split('<|slot_value|>')[1].split('<|endof_intent_slot|>')[0].\
+                                strip().split(',')
+
+                            for slot_value in slot_values_pre:
+                                slot_value = slot_value.strip()
+                                slot_pre.add(slot_value)
+
+                    intent_gold = groundtruth.split('<|slot_value|>')[0].split('<|intent|>')[1].strip()
+                    slot_values_gold = groundtruth.split('<|slot_value|>')[1].split('<|endof_intent_slot|>')[0].\
+                                strip().split(',')
+                    for slot_value in slot_values_gold:
+                        slot_value = slot_value.strip()
+                        slot_gold.add(slot_value)
+
+                    print("groundtruth:", groundtruth)
+
+                    request.append(intent_gold == intent_pred)
+                    print("intent_pred:", intent_pred)
+                    print("intent_gold:", intent_gold)
+
+
+                overstep[0] += 1
+                step_all += 1
+
+                assert len(res_pre) == len(res_gold)
+                slot_f1 = f1_score(y_true=res_gold, y_pred=res_pre, average='micro')
+                if (batch_idx % args.log_step) == 0:
+                    logger.info(
+                        "evaluate batch {} ,request_acc {}, joint_acc {}, avg_acc {}".format(
+                            batch_idx, np.mean(request), str(slot_f1), (np.mean(request) + slot_f1) / 2))
+                if args.local_rank == 0:
+                    tb_writer.add_scalar('avg_acc', (np.mean(request) + slot_f1) / 2, overstep[0])
+            logger.info("finishing evaluating. request_acc {}, joint_f1 {}, avg_acc {}".format(
+                np.mean(request), str(slot_f1), (np.mean(request) + slot_f1) / 2))
+
+        return (np.mean(request) + slot_f1) / 2
+
 def TextToDict(text, args):
     state = {}
     temp = text.strip()
@@ -855,7 +846,7 @@ def generate(model,tokenizer,test_list,args,device):
                             break
                     outputs.append(indexed_tokens)
 
-            outputs = model.generate(inputs["input_ids"], max_length=200, parameter_id=0)
+            outputs = model.module.generate(inputs["input_ids"], max_length=200, parameter_id=0)
 
             #print(outputs)
 
@@ -989,12 +980,12 @@ def main():
     # tokenizer的字典大小
     model = create_model(args)
     if args.local_test:
-        tokenizer = MT5Tokenizer.from_pretrained("../../mt5/")
+        tokenizer = MT5Tokenizer.from_pretrained("/data/yanguojun-slurm/mt5/")
     else:
-        tokenizer = MT5Tokenizer.from_pretrained("../../GPT2-chitchat/model/mt5/")
+        tokenizer = MT5Tokenizer.from_pretrained("/data/yanguojun-slurm/GPT2-chitchat/model/mt5/")
     tokenizer.add_special_tokens({'additional_special_tokens': ['<|user|>', '<|system|>','<en>', '<nlu>','<de>','<it>'
                                                                   ,'<|number|>','<|intent_slot|>' ,'<|endof_intent_slot|>'
-                                                                ,'<|slot_value|>']})
+                                                                ,'<|slot_value|>', '<|N|>']})
 
     #print(os.path.abspath(__file__))
     #r = open('G:/learn/code/Multilingual_Dialogue/data/nlu_process/nlubiomltcrossth_en_train.txt', 'r')
@@ -1056,12 +1047,10 @@ def main():
                          train_list.append(
                              '<|endoftext|> <|context|> ' + '<nlu> <' + temp_language + '> <' + temp_language + '>: ' +
                              z.split('<|context|>')[1])
-    print('train length:', len(train_list))
     logger.info("loading val data")
     val_temp = open(args.val_file_name, "r", encoding='utf-8').read().split('\n\n')[0:-1]
     val_list = []
     temp_language = args.val_file_name.split('_')[3]
-    CURRENT_LANG = temp_language
     print("dev_temp_language:", temp_language)
     for data in val_temp:
         if args.prefix:
@@ -1072,7 +1061,6 @@ def main():
                 print(x)
         else:
             val_list += data.split('\n')
-    print('val length:', len(val_list))
     logger.info("loading testing data")
     test_temp = open(args.test_file_name, "r", encoding='utf-8').read().split('\n\n')[0:-1]
     test_list = []
@@ -1089,7 +1077,6 @@ def main():
                 print(x)
         else:
             test_list += data.split('\n')
-    print('test length:', len(test_list))
     # 开始训练
 
     if args.mode == 'train':

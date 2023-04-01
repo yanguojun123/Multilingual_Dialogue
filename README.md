@@ -10,18 +10,20 @@ characteristics, and model design in a mixture-of-languages routing framework.
 
 The package general requirements are
 
-- Python >= 3.6
-- Pytorch >= 1.2 (installation instructions [here](https://pytorch.org/))
-- Transformers >= 2.5.1 (installation instructions [here](https://huggingface.co/transformers/))
+- Python == 3.7.10
+- Pytorch >= 1.10.2 (installation instructions [here](https://pytorch.org/))
+```
+conda install pytorch==1.10.0 torchvision==0.11.0 torchaudio==0.10.0 cudatoolkit=11.3 -c pytorch -c conda-forge
+```
 
 1- The package can be installed by running the following command.  
 
 ```pip install -r requirements.txt```
 
-2- Running inside docker container
-
+2- Make some directory to save information.
 ```
-docker build -t <image_name>:<tag> -f Dockerfile
+mkdir tensorboard_summary output
+mkdir output/result output/model 
 ```
 
 
@@ -54,8 +56,10 @@ Optional parameter: batch_size, mode ...(This part of parameter description can 
       lang: one of the [en, es, th]
       type: one of the [train, val, test]
 2). Crosslingual data:
-    nlutransmlt_es_train.txt
-    nlutransmlt_th_train.txt
+    nluclcsa0.7_es_train.txt
+    nluclcsa0.7_th_train.txt
+    
+
 ##### 3.1.2.2 settings:
 1)**Monolingual**
 For example, The following example is an example of English.
@@ -68,7 +72,7 @@ sh run_mt5.sh gpu06 Monolingual train_nlu nlu_mon_en en en nlubiomlt_en_train.tx
 For example, The following example is an example of from English and Spanish to English.
 
 ```bash
-sh run_mt5.sh gpu06 Monolingual train_nlu nlu_mot_enes2en es en nlubiomlt_en_train.txt,nlubiomlt_es_train.txt nlubiomlt_en_val.txt nlubiomlt_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+sh run_mt5.sh gpu06 Multilingual train_nlu nlu_mot_enes2en es en nlubiomlt_en_train.txt,nlubiomlt_es_train.txt nlubiomlt_en_val.txt nlubiomlt_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
 ```
 3)**Multilingual mixture-of-languages routing**
  train(To complete a complete experiment requires two stages of training):
@@ -83,13 +87,14 @@ For example, from English to Spanish, we need to use Thai as the intermediate la
 **step2**:
 We need to train on the best results obtained in the first step.
 ```
-sh run_mt5.sh gpu06 Multilingual train_nlu nlu_mot_enes2es es en nlubiomlt_en_train.txt,nlubiomlt_es_train.txtnlubiomlt_en_val.txt nlubiomlt_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --pretrained_model=/data/best_epoch/'
+sh run_mt5.sh gpu06 Multilingual train_nlu nlu_mot_enes2es es en nlubiomlt_en_train.txt,nlubiomlt_es_train.txt nlubiomlt_en_val.txt nlubiomlt_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --pretrained_model=/data/best_epoch/'
 ```
 
 4)**Crossligual**
 For example, train on the English data but test on the Thai data.
+
  ```
- sh train_mt5.sh gpu06 Multilingual train_nlu_cross mt5_clcsa_en2th en th nlutransmlt_th_train.txt nlubiomlt_th_val.txt nlubiomlt_th_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+ sh run_mt5.sh gpu06 Monolingual train_nlu nlu_clcsa_en2th en th nluclcsa0.7_th_train.txt nlubiomlt_th_val.txt nlubiomlt_th_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
  ```
 
 #### 3.1.2 Dialogue State Tracking(DST)
@@ -102,20 +107,21 @@ For example, train on the English data but test on the Thai data.
  type: one of the [train, val, test]
 
 2)Crosslingual data:
-  beliefCOSDA0.6_it_match.txt
+    beliefCOSDA_de_match
+    beliefCOSDA_it_match
 
 ##### 3.1.2.2 settings:
 **1)Monolingual**
 For example, The following example is an example of English.
 
 ```bash
-sh run_mt5.sh gpu06 Monolingual train_dst mt5_mon_en en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+sh run_mt5.sh gpu06 Monolingual train_dst dst_mon_en en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
 ```
 **2)Bilingual mixture-of-languages routing**
 For example, The following example is an example of from English and German to English.
 
 ```bash
-sh run_mt5.sh gpu06 Multilingual train_dst mt5_mot_ende2en de en beliefinput2delex_en_train.txt,beliefinput2delex_de_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+sh run_mt5.sh gpu06 Multilingual train_dst dst_mot_ende2en de en beliefinput2delex_en_train.txt,beliefinput2delex_de_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
 ```
 **3)Multilingual mixture-of-languages routing**
  train(To complete a complete experiment requires two stages of training):
@@ -125,18 +131,19 @@ For example, from English to German, we need to use Italian as the intermediate 
 
 **step1**:
  ```bash
- sh run_mt5.sh gpu06 Multilingual train_dst mt5_mot_deit2it it de beliefinput2delex_de_train.txt,beliefinput2delex_it_train.txt beliefinput2delex_it_val.txt beliefinput2delex_it_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+ sh run_mt5.sh gpu06 Multilingual train_dst dst_mot_deit2it it de beliefinput2delex_de_train.txt,beliefinput2delex_it_train.txt beliefinput2delex_it_val.txt beliefinput2delex_it_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
  ```
 **step2**:
 We need to train on the best results obtained in the first step.
+
 ```bash
-sh run_mt5.sh gpu06 Multilingual train_dst mt5_mot_ende2de en de beliefinput2delex_en_train.txt,beliefinput2delex_de_train.txt beliefinput2delex_de_val.txt beliefinput2delex_de_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --pretrained_model=/data/best_epoch/'
+sh run_mt5.sh gpu06 Multilingual train_dst dst_mot_ende2de en de beliefinput2delex_en_train.txt,beliefinput2delex_de_train.txt beliefinput2delex_de_val.txt beliefinput2delex_de_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --pretrained_model=/data/best_epoch/'
 ```
 4)**Crossligual**
 
 For example, train on the English data but test on the Italian data.
  ```
- sh train_mt5.sh gpu06 Multilingual train_dst mt5_clcsa_en2it en it beliefCOSDA0.6_it_match.txt beliefinput2delex_it_val.txt beliefinput2delex_it_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
+ sh run_mt5.sh gpu06 Monolingual train_dst dst_clcsa_en2it en it beliefCOSDA_it_match.txt beliefinput2delex_it_val.txt beliefinput2delex_it_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
  ```
 
 ### 3.2 evaluation
@@ -145,7 +152,7 @@ Use the same command as training, but you need to change some parameters. Specif
 
 For example, we evaluate on the Monlingual English data.
 ```bash
-sh run_mt5.sh gpu06 Monolingual train_dst mt5_mot_en_eval en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=evluation --dialogue_model_output_path=model/mon_en_model/'
+sh run_mt5.sh gpu06 Monolingual train_dst mt5_mot_en_eval en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=eva --dialogue_model_output_path=mon_en_model/'
 ```
 ### 3.3 test
 
@@ -153,9 +160,28 @@ Use the same command as training, but you need to change some parameters. Specif
 
 For example, we test on the Monlingual English data.
 ```bash
-sh run_mt5.sh gpu06 Monolingual train_dst mt5_mot_en_test en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=test --pretrained_model=model/mon_en_model/model_epoch4/'
+sh run_mt5.sh gpu06 Monolingual train_dst mt5_mot_en_test en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=test --pretrained_model=../output/model/mon_en_model/model_epoch4/'
 ```
 
-## 4.Citation
+## 4.Document 
+	1. data: save data
+		1.1 mulwoz: original data of dst
+		1.2 mulwoz_process: processed data of dst
+		1.3 nlu: original data of nlu
+		1.4 nlu_process: processed data of nlu
+		1.5 vocab: code switching data  
+		1.6 ontology: ontology data of original dst data 
+	2. Multilingual: for bilingual setting and multilingual setting
+	3. Mononligual: for mononlingual setting and crosslingual setting
+	4. output: save model and result
+		4.1 model: save model
+		4.2 result: save test result
+	5. tensorboard_summary: Save the data that you can visualize
+	6. run_mt5.sh: run bash file
+	7. process.py: python file for processing data  
 
-## 5.License
+
+		
+## 5.Citation
+
+## 6.License

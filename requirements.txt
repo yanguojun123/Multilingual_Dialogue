@@ -1,7 +1,10 @@
-transformers
-spicy
-boto3
-ipdb
-tqdm
-json
-seqeval
+transformers==4.4.2
+boto3==1.21.22
+ipdb==0.13.7
+tqdm==4.59.0
+sentencepiece==0.1.95
+tensorboard==2.4.1
+protobuf==3.15.6
+setuptools==56.0.0
+packing==20.9
+sklearn==0.0.0
