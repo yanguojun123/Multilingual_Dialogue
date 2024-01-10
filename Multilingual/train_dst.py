@@ -197,7 +197,7 @@ def collate_fn(batch):
     btc_size = len(batch)
 
     inputs = []
-    labels = []
+    labels = [] 
     for btc_idx in range(btc_size):
         #inputs.append('<dst> <en>: '+batch[btc_idx].split("<|endofcontext|>")[0].split("<|context|>")[1])
         inputs.append(batch[btc_idx].split("<|belief|>")[0].split("<|context|>")[1])

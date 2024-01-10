@@ -2,3 +2,4 @@
 .idea/*
 result/*
 data/*
+/utils/data.py
