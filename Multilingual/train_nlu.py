@@ -656,8 +656,10 @@ def evaluate_avg_acc(model, device,val_list, args, tokenizer, tb_writer, overste
                 outputs = model.generate(inputs["input_ids"], max_length=200, parameter_id=0)
 
             for index in range(len(outputs)):
+                #example: <|intent_slot|> <|intent|> weather/find <|slot_value|> O O O B-weather/noun I-weather/noun O B-location I-location I-location <|endof_intent_slot|>
                 groundtruth = dialogue_groundtruth[index].split('<|intent_slot|>')[1].split(
                     '<|endof_intent_slot|>')[0]
+
                 #print("groundtrhtu:", groundtruth)
                 try:
                     generation = tokenizer.decode(outputs[index])
@@ -679,7 +681,10 @@ def evaluate_avg_acc(model, device,val_list, args, tokenizer, tb_writer, overste
                 # joint_pred = {}
                 slot_values_pre = ''
 
+                #example: weather/find, intent_gold: [0,0,1,2]
                 intent_gold.append(intent_set[groundtruth.split('<|slot_value|>')[0].split('<|intent|>')[1].strip()])
+
+                #example: [O, O, O, B-weather/noun, I-weather/noun, O, B-location, I-location, I-location]
                 slot_values_gold = groundtruth.split('<|slot_value|>')[1].strip().split()
                 for slot_value in slot_values_gold:
                     # if slot_value in index2slot.keys():
@@ -690,10 +695,13 @@ def evaluate_avg_acc(model, device,val_list, args, tokenizer, tb_writer, overste
                 if generation != 'error' and generation != ' ':
                     if '<|slot_value|>' in generation:
 
+                        #example: 'weather/find'
                         intent_temp = generation.split('<|slot_value|>')[0].split('<|intent|>')[1].strip()
                         if intent_temp in intent_set.keys():
+                            #example: [0]
                             intent_pred.append(intent_set[intent_temp])
                         else:
+                            #example: [12]
                             intent_pred.append(len(intent_set))
                         slot_values_pre = generation.split('<|slot_value|>')[1].strip().split()
                         if len(slot_values_gold) == len(slot_values_pre):
