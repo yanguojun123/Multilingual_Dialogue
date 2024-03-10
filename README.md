@@ -146,6 +146,45 @@ For example, train on the English data but test on the Italian data.
  sh run_mt5.sh gpu06 Monolingual train_dst dst_clcsa_en2it en it beliefCOSDA_it_match.txt beliefinput2delex_it_val.txt beliefinput2delex_it_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train'
  ```
 
+
+#### 3.1.3 Natural Language Generation(NLG)
+
+##### 3.1.3.1 data
+1)Monolingual/Bilingual/Multilingual data:
+ data/mulwoz_process/woz_{lang}_{type}_nlg.txt
+ lang: one of the [en, de, it]
+ type: one of the [train, val, test]
+
+##### 3.1.3.2 settings:
+**1)Monolingual**
+For example, The following example is an example of English.
+
+```bash
+sh run_nlg.sh gpu06 Monolingual  nlg_mon_en train_nlg en en woz_en_train_nlg.json woz_en_dev_nlg.json woz_en_test_nlg.json '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --evaluate_type=loss'
+```
+**2)Bilingual mixture-of-languages routing**
+For example, The following example is an example of from English and German to English.
+
+```bash
+sh run_nlg.sh gpu06 Multilingual nlg_mot_ende2en train_nlg de en woz_en_train_nlg.json,woz_de_train_nlg.json woz_en_dev_nlg.json woz_en_test_nlg.json '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --evaluate_type=loss'
+```
+**3)Multilingual mixture-of-languages routing**
+ train(To complete a complete experiment requires two stages of training):
+
+For example, from English to German, we need to use Italian as the intermediate language for the transition.
+
+
+**step1**:
+ ```bash
+ sh run_nlg.sh gpu06 Multilingual  nlg_mot_deit2it train_nlg it de woz_it_train_nlg.json,woz_de_train_nlg.json woz_de_dev_nlg.json woz_de_test_nlg.json '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --evaluate_type=loss'
+ ```
+**step2**:
+We need to train on the best results obtained in the first step.
+
+```bash
+sh run_nlg.sh gpu06 Multilingual  nlg_mot_ende2de train_nlg en de woz_en_train_nlg.json,woz_de_train_nlg.json woz_de_dev_nlg.json woz_de_test_nlg.json '--batch_size=6 --gradient_accumulation=2 --prefix --mode=train --pretrained_model=/data/best_epoch/ --evaluate_type=loss'
+```
+
 ### 3.2 evaluation
 
 Use the same command as training, but you need to change some parameters. Specifically, you need to add the model folder(--dialogue_model_output_path) to be evaluated and set the mode to be evaluated(--mode=evluation).
@@ -162,6 +201,9 @@ For example, we test on the Monlingual English data.
 ```bash
 sh run_mt5.sh gpu06 Monolingual train_dst mt5_mot_en_test en en beliefinput2delex_en_train.txt beliefinput2delex_en_val.txt beliefinput2delex_en_test.txt '--batch_size=6 --gradient_accumulation=2 --prefix --mode=test --pretrained_model=../output/model/mon_en_model/model_epoch4/'
 ```
+
+
+
 
 ## 4.Document 
 	1. data: save data

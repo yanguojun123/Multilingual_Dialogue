@@ -2,3 +2,4 @@
 .idea/*
 result/*
 /utils/data.py
+Monolingual/test_nlg.py
