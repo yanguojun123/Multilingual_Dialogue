@@ -1637,15 +1637,42 @@ def nlu_trans_mlt(file_name, save_name):
             save_file.write(new_sentence + '\n')
     save_file.write('\n')
 
+def nlg_data(file_name, save_name):
+    datas = json.load(open(file_name, 'r', encoding='utf-8'))
+    contexts = []
+    responses = []
+    res = {}
+    for data in datas:
+        turns = data['dialogue']
+        context = ""
+        response = ""
+        turn_len = len(turns)
+        for turn in turns:
+            turn_id = turn['turn_idx']
+            if turn_id == 0:
+                context = turn['transcript']
+                contexts.append(context)
+            else:
+                response = turn['system_transcript']
+                responses.append(response)
+                context = context+turn['system_transcript']+turn['transcript']
+                if turn_id < turn_len-1:
+                    contexts.append(context)
+
+    res['contexts'] = contexts
+    res['responses'] = responses
+    assert  len(contexts) == len(responses)
+    json.dump(res, open(save_name, 'w', encoding='utf-8'), indent=1)
+
 
 if __name__ == '__main__':
 
     # NLU
     # nlubiomlt
-    for lang in ['en','es','th']:
-        nlu_bio('data/nlu/'+lang+'/train-'+lang+'.tsv', 'data/nlu_process/nlubiomlt_'+lang+'_train.txt')
-        nlu_bio('data/nlu/' + lang + '/eval-' + lang + '.tsv', 'data/nlu_process/nlubiomlt_' + lang + '_val.txt')
-        nlu_bio('data/nlu/' + lang + '/test-' + lang + '.tsv', 'data/nlu_process/nlubiomlt_' + lang + '_test.txt')
+    # for lang in ['en','es','th']:
+    #     nlu_bio('data/nlu/'+lang+'/train-'+lang+'.tsv', 'data/nlu_process/nlubiomlt_'+lang+'_train.txt')
+    #     nlu_bio('data/nlu/' + lang + '/eval-' + lang + '.tsv', 'data/nlu_process/nlubiomlt_' + lang + '_val.txt')
+    #     nlu_bio('data/nlu/' + lang + '/test-' + lang + '.tsv', 'data/nlu_process/nlubiomlt_' + lang + '_test.txt')
 
 
     # nluclcsa0.7_es_train.txt
@@ -1664,5 +1691,16 @@ if __name__ == '__main__':
     #beliefCOSDA_de_match
     # data_belief_user_COSDA('data/mulwoz/woz_train_de.json', 'data/mulwoz_process/beliefcrossclcsade1_it_match.txt',
     #                                               src_lang='de', match_language='it', delex=True, split_lang=0)
+
+    #gengerate nlg data
+    # nlg_data('data/mulwoz/woz_validate_en.json', 'data/mulwoz_process/woz_en_dev_nlg.json')
+    # nlg_data('data/mulwoz/woz_test_en.json', 'data/mulwoz_process/woz_en_test_nlg.json')
+    nlg_data('data/mulwoz/woz_train_de.json', 'data/mulwoz_process/woz_de_train_nlg.json')
+    nlg_data('data/mulwoz/woz_validate_de.json', 'data/mulwoz_process/woz_de_dev_nlg.json')
+    nlg_data('data/mulwoz/woz_test_de.json', 'data/mulwoz_process/woz_de_test_nlg.json')
+
+    nlg_data('data/mulwoz/woz_train_it.json', 'data/mulwoz_process/woz_it_train_nlg.json')
+    nlg_data('data/mulwoz/woz_test_it.json', 'data/mulwoz_process/woz_it_test_nlg.json')
+    nlg_data('data/mulwoz/woz_validate_it.json', 'data/mulwoz_process/woz_it_dev_nlg.json')
 
 
